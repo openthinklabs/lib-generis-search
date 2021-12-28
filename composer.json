@@ -1,5 +1,5 @@
 {
-  "name": "oat-sa/lib-generis-search",
+  "name": "openthinklabs/lib-generis-search",
   "description": "Library provide an object search API",
   "require": {
     "zendframework/zend-servicemanager": "~2.5.0"
