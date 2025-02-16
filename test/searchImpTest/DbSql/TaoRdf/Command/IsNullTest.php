@@ -20,47 +20,53 @@
 
 namespace oat\search\test\searchImpTest\DbSql\TaoRdf\Command;
 
+use oat\search\base\QueryCriterionInterface;
+use oat\search\DbSql\TaoRdf\Command\IsNULL;
+use oat\search\QueryCriterion;
 use oat\search\test\UnitTestHelper;
+
 /**
- * test for LikeBegin
+ * test for Is NULL
  *
  * @author Christophe GARCIA <christopheg@taotesting.com>
  */
 class IsNullTest extends UnitTestHelper {
-    
-    public function testConvert() {
-        
-        $fixturePredicate = 'http://www.w3.org/2000/01/rdf-schema#label';
-        $fixtureOperator  = 'IS NULL';
-        $fixtureValue     = null;
-        $fixtureProperty = '(`predicate` = "' . $fixturePredicate . '") AND';
-        
-        $this->instance = $this->getMockForAbstractClass(
-                'oat\search\DbSql\TaoRdf\Command\IsNULL',
-                [], '',  true, true, true, 
-                ['getDriverEscaper' , 'setPropertyName' , 'getOperator']
-        );
-        
-        $expected = '' . $fixtureProperty . ' `object` IS NULL ';
-        
-        $QueryCriterionProphecy = $this->prophesize('\oat\search\base\QueryCriterionInterface');
-        
-        $QueryCriterionProphecy->getValue()->willReturn($fixtureValue);
-        $QueryCriterionProphecy->getName()->willReturn($fixturePredicate);
-        
-        $QueryCriterionMock = $QueryCriterionProphecy->reveal();
-        
-        $DriverProphecy = $this->prophesize('oat\search\base\Query\EscaperInterface');
-        
-        $DriverProphecy->reserved('object')->willReturn('`object`')->shouldBeCalledTimes(1);
-        
-        $DriverMock     = $DriverProphecy->reveal();
-        
-        $this->instance->expects($this->any())->method('getDriverEscaper')->willReturn($DriverMock);
-        $this->instance->expects($this->once())->method('setPropertyName')->with($fixturePredicate)->willReturn($fixtureProperty);
-        $this->instance->expects($this->any())->method('getOperator')->willReturn($fixtureOperator);
-        
-        $this->setInaccessibleProperty($this->instance, 'operator', $fixtureOperator);
-        $this->assertSame($expected, $this->instance->convert($QueryCriterionMock));
+
+    public function setUp(): void
+    {
+        $this->instance = new IsNull();
+        $this->instance->setDriverEscaper(new EscaperStub());
+    }
+
+    public function convertProvider(): \Generator
+    {
+        yield [
+            'http://www.w3.org/2000/01/rdf-schema#label',
+            '`predicate` = "http://www.w3.org/2000/01/rdf-schema#label" AND ( `object` IS NULL '
+        ];
+
+        yield [
+            '',
+            '`object` IS NULL '
+        ];
+
+        yield [
+            QueryCriterionInterface::VIRTUAL_URI_FIELD,
+            ' ( `subject` IS NULL ',
+        ];
+    }
+
+    /**
+     * @dataProvider convertProvider
+     *
+     * @param string $predicate
+     * @param string $expected
+     */
+    public function testConvert(string $predicate, string $expected): void
+    {
+        $queryCriterion = new QueryCriterion();
+        $queryCriterion->setName($predicate);
+
+        $this->assertSame($expected, $this->instance->convert($queryCriterion));
     }
 }

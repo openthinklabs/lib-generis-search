@@ -20,49 +20,58 @@
 
 namespace oat\search\test\searchImpTest\DbSql\TaoRdf\Command;
 
+use oat\search\base\QueryCriterionInterface;
+use oat\search\DbSql\TaoRdf\Command\LikeContain;
+use oat\search\QueryCriterion;
 use oat\search\test\UnitTestHelper;
+
 /**
- * test for LikeBegin
+ * test for LikeContain
  *
  * @author Christophe GARCIA <christopheg@taotesting.com>
  */
-class LikeContainTest extends UnitTestHelper {
-    
-    public function testConvert() {
-        
-        $fixturePredicate = 'http://www.w3.org/2000/01/rdf-schema#label';
-        $fixtureValue     = 'test';
-        $fixtureOperator  = 'LIKE';
-        
-        $fixtureProperty = '(`predicate` = "' . $fixturePredicate . '") AND';
+class LikeContainTest extends UnitTestHelper
+{
+    public function setUp(): void
+    {
+        $this->instance = new LikeContain();
+        $this->instance->setDriverEscaper(new EscaperStub());
+    }
 
-        $this->instance = $this->getMockBuilder(
-            'oat\search\DbSql\TaoRdf\Command\LikeContain')
-            ->setMethods(['getDriverEscaper', 'setPropertyName', 'getOperator'])
-            ->getMock();
-        
-        $expected = '' . $fixtureProperty . ' `object` LIKE "%test%"';
-        
-        $QueryCriterionProphecy = $this->prophesize('\oat\search\base\QueryCriterionInterface');
-        
-        $QueryCriterionProphecy->getValue()->willReturn($fixtureValue);
-        $QueryCriterionProphecy->getName()->willReturn($fixturePredicate);
-        
-        $QueryCriterionMock = $QueryCriterionProphecy->reveal();
-        
-        $DriverProphecy = $this->prophesize('oat\search\base\Query\EscaperInterface');
-        
-        $DriverProphecy->escape('%' . $fixtureValue . '%')->willReturn('%' .$fixtureValue . '%')->shouldBeCalledTimes(1);
-        $DriverProphecy->quote('%' .$fixtureValue . '%')->willReturn('"%' . $fixtureValue . '%"')->shouldBeCalledTimes(1);
-        $DriverProphecy->reserved('object')->willReturn('`object`')->shouldBeCalledTimes(1);
-        
-        $DriverMock     = $DriverProphecy->reveal();
-        
-        $this->instance->expects($this->any())->method('getDriverEscaper')->willReturn($DriverMock);
-        $this->instance->expects($this->once())->method('setPropertyName')->with($fixturePredicate)->willReturn($fixtureProperty);
-        $this->instance->expects($this->any())->method('getOperator')->willReturn($fixtureOperator);
-        
-        $this->setInaccessibleProperty($this->instance, 'operator', $fixtureOperator);
-        $this->assertSame($expected, $this->instance->convert($QueryCriterionMock));
+    public function convertProvider(): \Generator
+    {
+        yield [
+            'http://www.w3.org/2000/01/rdf-schema#label',
+            'test',
+            '`predicate` = "http://www.w3.org/2000/01/rdf-schema#label" AND ( `object` LIKE "%test%"'
+        ];
+
+        yield [
+            '',
+            'test',
+            '`object` LIKE "%test%"'
+        ];
+
+        yield [
+            QueryCriterionInterface::VIRTUAL_URI_FIELD,
+            'test' ,
+            ' ( `subject` LIKE "%test%"',
+        ];
+    }
+
+    /**
+     * @dataProvider convertProvider
+     *
+     * @param string $predicate
+     * @param mixed $value
+     * @param string $expected
+     */
+    public function testConvert(string $predicate, $value, string $expected): void
+    {
+        $queryCriterion = new QueryCriterion();
+        $queryCriterion->setName($predicate);
+        $queryCriterion->setValue($value);
+
+        $this->assertSame($expected, $this->instance->convert($queryCriterion));
     }
 }
